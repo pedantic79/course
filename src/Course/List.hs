@@ -76,7 +76,7 @@ headOr ::
   -> List a
   -> a
 headOr _ (x :. _) = x
-headOr y Nil = y
+headOr v Nil = v                 
 
 -- | The product of the elements of a list.
 --
@@ -113,7 +113,7 @@ sum = foldLeft (+) 0
 length ::
   List a
   -> Int
-length = foldLeft (\b _ -> b+1) 0
+length = foldLeft (const . (+1)) 0
 
 -- | Map the given function on each element of the list.
 --
@@ -127,8 +127,7 @@ map ::
   (a -> b)
   -> List a
   -> List b
-map f (x :. xs) = f x :. map f xs
-map _ Nil = Nil
+map f = foldRight (\a b -> f a :. b) Nil
 
 -- | Return elements satisfying the given predicate.
 --
@@ -144,10 +143,7 @@ filter ::
   (a -> Bool)
   -> List a
   -> List a
-filter p (x :. xs) = if p x
-                     then x :. filter p xs
-                     else filter p xs
-filter _ Nil = Nil
+filter p = foldRight (\a -> if p a then (a :.) else id) Nil
 
 -- | Append two lists to a new list.
 --
@@ -165,9 +161,8 @@ filter _ Nil = Nil
   List a
   -> List a
   -> List a
-(++) (x :. xs) ys = x :. (++) xs ys
-(++) Nil (y :. ys) = y :. (++) Nil ys
-(++) Nil Nil = Nil
+(++) = flip $ foldRight (:.)
+
 
 infixr 5 ++
 
@@ -184,8 +179,7 @@ infixr 5 ++
 flatten ::
   List (List a)
   -> List a
-flatten Nil = Nil
-flatten (l :. ls) = l ++ flatten ls
+flatten = foldRight (++) Nil
 
 -- | Map a function then flatten to a list.
 --
@@ -201,7 +195,7 @@ flatMap ::
   (a -> List b)
   -> List a
   -> List b
-flatMap f xs = flatten $ map f xs
+flatMap f = flatten . map f
 
 -- | Flatten a list of lists to a list (again).
 -- HOWEVER, this time use the /flatMap/ function that you just wrote.
@@ -237,12 +231,7 @@ flattenAgain = flatMap id
 seqOptional ::
   List (Optional a)
   -> Optional (List a)
-seqOptional (ys) = helper ys Nil
-  where
-    helper (x :. xs) acc = case x of
-                            Empty -> Empty
-                            Full y -> helper xs (acc ++ (y :. Nil))
-    helper Nil acc = Full acc
+seqOptional = foldRight (twiceOptional (:.)) $ Full Nil
 
 -- | Find the first element in the list matching the predicate.
 --
@@ -264,10 +253,9 @@ find ::
   (a -> Bool)
   -> List a
   -> Optional a
-find f (x :. xs) = if f x
-                   then Full x
-                   else find f xs
-find _ Nil = Empty
+find p xs = case filter p xs of
+              Nil    -> Empty
+              (h:._) -> Full h
 
 -- | Determine if the length of the given list is greater than 4.
 --
@@ -285,11 +273,8 @@ find _ Nil = Empty
 lengthGT4 ::
   List a
   -> Bool
-lengthGT4 xs = helper xs 4
-  where
-    helper (_ :. ys) n | n == 0 = True
-                       | otherwise = helper ys (n - 1)
-    helper Nil _ = False
+lengthGT4 (_ :. _ :. _ :. _ :. _ :. _) = True
+lengthGT4 _ = False
 
 -- | Reverse a list.
 --
